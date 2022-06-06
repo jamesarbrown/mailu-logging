@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-config
+data:
+  filebeat.yml: |
+    filebeat.inputs:
+      - type: container
+        paths: 
+        - /var/log/containers/mailu-post*.log
+    output:
+      logstash:
+        hosts: [ "mailu-logging:5044" ]

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mailu-logstash-filter-postfix-prepare
+data:
+  30-filter-postfix-prepare.conf: |
+    filter {
+      if "postfix" in [tags] {
+        grok {
+          match => { "message" => "%{SYSLOGTIMESTAMP} %{SYSLOGHOST} %{DATA:program}(?:\[%{POSINT}\])?: %{GREEDYDATA:message}" }
+          overwrite => "message"
+        }
+      }
+    }

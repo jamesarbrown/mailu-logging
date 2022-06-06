@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailu-logging
+  labels:
+    app: mailu-logging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailu-logging
+  template:
+    metadata:
+      labels:
+        app: mailu
+        component: logging
+    spec:
+      containers:
+        - name: mailu-filebeat
+          image: elastic/filebeat:8.2.1
+          args: [
+            "-c", "/etc/filebeat/filebeat.yml",
+            "-e"
+          ]          
+          volumeMounts:
+            - name: filebeat-config
+              mountPath: /etc/filebeat/
+            - name: k8slogging1
+              mountPath: /var/log/containers/
+              readOnly: true
+            - name: k8slogging2
+              mountPath: /var/log/pods/
+              readOnly: true
+          resources:
+            limits:
+              memory: 200Mi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+        - name: mailu-logstash
+          image: logstash:8.2.1
+          ports:
+            - containerPort: 5044
+          volumeMounts:
+            - name: logstash-pipeline
+              mountPath: /usr/share/logstash/pipeline/logstashpipeline.yaml
+              subPath: logstashpipeline.yaml
+            - name: mailu-logstash-filter-postfix-prepare
+              mountPath: /usr/share/logstash/pipeline/30-filter-postfix-prepare.conf
+              subPath: 30-filter-postfix-prepare.conf
+            - name: mailu-logstash-filter-postfix
+              mountPath: /usr/share/logstash/pipeline/31-filter-postfix.conf
+              subPath: 31-filter-postfix.conf
+            - name: mailu-logstash-filter-postfix-aggregate
+              mountPath: /usr/share/logstash/pipeline/32-filter-postfix-aggregate.conf
+              subPath: 32-filter-postfix-aggregate.conf
+            - name: mailu-logstash-filter-postfix-dkim
+              mountPath: /usr/share/logstash/pipeline/33-filter-dkim.conf
+              subPath: 33-filter-dkim.conf
+            - name: mailu-logstash-grok-patterns
+              mountPath: /etc/logstash/patterns.d/
+            - name: logstash-config
+              mountPath: /usr/share/logstash/config/logstash.yml
+              subPath: logstash.yml
+          command:
+          - logstash
+      volumes:
+        - name: filebeat-config
+          configMap:
+            name: filebeat-config
+            items:
+              - key: filebeat.yml
+                path: filebeat.yml
+        - name: logstash-pipeline
+          configMap:
+            name: logstash-pipeline
+            items:
+              - key: logstashpipeline.yaml
+                path: logstashpipeline.yaml
+        - name: logstash-config
+          configMap:
+            name: logstash-config
+            items:
+              - key: logstash.yml
+                path: logstash.yml
+        - name: k8slogging1
+          hostPath:
+            path: /var/log/containers
+        - name: k8slogging2
+          hostPath:
+            path: /var/log/pods
+        - name: mailu-logstash-grok-patterns
+          configMap:
+            name: mailu-logstash-grok-patterns 
+            items:
+              - key: opendkim.grok
+                path: opendkim.grok
+              - key: postfix.grok
+                path: postfix.grok
+        - name: mailu-logstash-filter-postfix-prepare
+          configMap:
+            name: mailu-logstash-filter-postfix-prepare 
+            items:
+              - key: 30-filter-postfix-prepare.conf
+                path: 30-filter-postfix-prepare.conf
+        - name: mailu-logstash-filter-postfix
+          configMap:
+            name: mailu-logstash-filter-postfix
+            items:
+              - key: 31-filter-postfix.conf
+                path: 31-filter-postfix.conf
+        - name: mailu-logstash-filter-postfix-aggregate
+          configMap:
+            name: mailu-logstash-filter-postfix-aggregate
+            items:
+              - key: 32-filter-postfix-aggregate.conf
+                path: 32-filter-postfix-aggregate.conf
+        - name: mailu-logstash-filter-postfix-dkim
+          configMap:
+            name: mailu-logstash-filter-dkim 
+            items:
+              - key: 33-filter-dkim.conf
+                path: 33-filter-dkim.conf
+
+
+
